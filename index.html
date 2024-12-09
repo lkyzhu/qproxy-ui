@@ -1,0 +1,239 @@
+<html>
+<head   style="background-image: url('dd.gif'); background-size: cover;">
+    <!--
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+   
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *;script-src * 'unsafe-inline'">
+     --->
+    <link rel="stylesheet" href="./css/index.css"> 
+    <title>qproxy </title>
+    <script>
+        // 设置日志监控
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.on('logger2render', (event, msg) => {
+            document.getElementById("logger_content").value += msg;
+        });
+		
+		// 初始化配置
+		ipcRenderer.on('init_conf', initConf);
+		
+		function initConf(event, msg) {
+			//alert(msg);
+			try {
+				if (msg) {
+					if ("local" in msg) {
+						if ("addr" in msg["local"]) {
+							document.getElementById("local_addr").value = msg["local"]["addr"];
+						}
+					}
+					
+					if ("agent" in msg) {
+						if ("addr" in msg["agent"]) {
+							document.getElementById("remote_addr").value = msg["agent"]["addr"];
+						}
+						
+						if ("cert" in msg["agent"]) {
+							const cert = msg["agent"]["cert"];
+							
+							document.getElementById("identity_cert_file").textContent = msg["agent"]["cert"]["cert"];
+							document.getElementById("identity_cert_data").value = msg["agent"]["cert"]["certData"];
+							
+							document.getElementById("identity_key_file").textContent = msg["agent"]["cert"]["key"];
+							document.getElementById("identity_key_data").value = msg["agent"]["cert"]["keyData"];
+						}
+					}
+					// 配置文件存在，默认禁用配置按钮
+					document.getElementById("config_btn").disabled = true;
+					// 配置文件存在，默认启用启动按钮
+					document.getElementById("start_btn").disabled = false;					
+				} else {
+					// 配置文件不存在，启用配置
+					document.getElementById("config_btn").disabled = false;
+					// 配置文件不存在，禁用启动按钮
+					document.getElementById("start_btn").disabled = true;	
+				}
+			} catch (error) {
+				console.error("Parsing error:", error);
+				alert(error);
+			}			
+		}
+
+        function debugBtnClick(){
+            const { ipcRenderer } = require('electron');
+            // 发送信号给主进程，请求开启调试工具
+            ipcRenderer.send('open-devtools');
+        }
+        
+		// 保存配置
+        function configBtnClick(){
+			var msg = new Object();
+			msg.local = new Object();
+			msg.local.addr = document.getElementById("local_addr").value;
+			
+			msg.agent = new Object();
+			msg.agent.addr = document.getElementById("remote_addr").value;
+			msg.agent.cert = new Object();			
+			
+			const certData = document.getElementById("identity_cert_data").value.trim();
+			if (certData != '') {
+				msg.agent.cert.certData = certData;
+			}
+			
+			const cFile = document.getElementById("identity_cert_file").textContent.trim();
+			if (cFile != '') {
+				msg.agent.cert.cert = cFile;
+			}
+			
+			const keyData = document.getElementById("identity_key_data").value.trim();
+			if (keyData != '') {
+				msg.agent.cert.keyData = keyData
+			}
+			
+			const kFile = document.getElementById("identity_key_file").textContent.trim();
+			if (kFile != '') {
+				msg.agent.cert.key = kFile;
+			}
+			
+			const { ipcRenderer } = require('electron');
+            // 发送信号给主进程，更新配置到文件
+            ipcRenderer.send('update-conf', msg);
+			
+			// 禁用配置按钮
+			document.getElementById("config_btn").disabled = true;
+			//启用启动按钮
+			document.getElementById("start_btn").disabled = false;		
+			alert(msg);
+        }
+        
+        function configChanged(e){
+			// 启用配置按钮
+			document.getElementById("config_btn").disabled = false; 
+        }
+		
+		function certLoad(e, id, fp){
+			// 读取文件			
+			const file = e.target.files[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = function(e) {
+					const content = e.target.result;
+					document.getElementById(id).value = content;
+					alert(content);
+					document.getElementById(fp).textContent = file.name;
+				}
+				reader.readAsText(file);				
+			}
+			
+			alert(file.name);
+			
+			configChanged(e);
+        }
+		/*
+		function keyLoad(e, id){
+			// 读取文件			
+			const file = e.target.files[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = function(e) {
+					const content = e.target.result;
+					document.getElementById(id).value = content;
+					alert(content);
+				}
+				reader.readAsText(file);
+			}			
+			
+			configChanged(e);
+        }
+		*/
+
+        function startClick(){
+            const { ipcRenderer } = require('electron');
+			var conf = document.getElementById('config_file_path').value;
+            ipcRenderer.send('start-subprocess', conf);
+        }
+		
+		function logCleanClick(){
+            document.getElementById("logger_content").value = "";
+        }
+		
+		function fileButtonClick(id){
+           document.getElementById(id).click();
+        }
+		
+    </script>
+    
+</head>
+<body  >
+    <div>
+        <div class="div_menu"   >
+            <div class="div_left" style="width:50% text-align:left">
+                
+            </div>
+            <div class="div_right" style="width:50%">                
+                <button type="submit" class="button" id="config_btn" onclick="configBtnClick()"> 配置</button>
+                <button type="submit" class="button" id="start_btn" onclick="startClick()"> 开启</button>
+                <button type="submit" class="button" "id=debug_btn" onclick="debugBtnClick()"> 调试</button>
+
+                <p id="config_file_path"> </p>
+            </div>
+        </div>
+
+        <div class="div_main" style="background-image: url('d7.gif'); background-size: cover;">
+            <div class="div_local">
+                <div class="div_label">
+                    <span>本地配置:</span>
+                </div>
+                <div class="div_content">
+                    <div class="div">
+                        <label>地&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;址:</label>
+                        <input id="local_addr" class="input" onchange="configChanged()"></input>
+                    </div>
+                </div>
+            </div>
+            <div class="div_remote">
+                <div class="div_label">
+                    <span>远程配置:</span>
+                </div>
+                <div class="div_content">
+                    <div class="div">
+                        <label>地&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;址:</label>
+                        <input id="remote_addr" class="input" onchange="configChanged()"> </input>
+                    </div>
+                    <div class="div" hidden=true>
+                        <label>通信秘钥:</label>
+                        <input id="sec_key" class="input" onchange="configChanged()"> </input> <button class="button">刷新</button>
+                    </div>
+					<div class="div">
+                        <label>身份证书:</label>						
+                        <input id="identity_cert" type="file" class="input" onchange="certLoad(event, 'identity_cert_data', 'identity_cert_file')" style="display:none"> </input>	
+						<textarea id="identity_cert_data" hidden=false></textarea>
+						<button type="submit" class="button" onclick="fileButtonClick('identity_cert')"> 选择文件</button>
+						<label id="identity_cert_file"></label>
+                    </div>
+					<div class="div">
+                        <label>身份私钥:</label>
+                        <input id="identity_key" type="file" class="input" onchange="certLoad(event, 'identity_key_data', 'identity_key_file')" style="display:none"> </input> 
+						<textarea id="identity_key_data" hidden=false></textarea>
+						<button type="submit" class="button" onclick="fileButtonClick('identity_key')"> 选择文件</button>
+						<label id="identity_key_file"></label>
+                    </div>
+                </div>
+			</div>
+        </div>
+        <div class="div_logger">
+            <div class="div_left" style="width:50% text-align:left">
+                <span>监控:</span>				
+            </div>
+			<div class="div_right" style="width:50%">  
+				<button type="submit" class="button" "id=log_clean_btn" onclick="logCleanClick()"> 清除</button>
+			</div>
+            <div class="div_content">
+                <textarea id="logger_content" class="text_logger"></textarea>
+            </div>
+
+        </div>
+    </div>
+</body>
+
+</html>
+
