@@ -4,7 +4,8 @@ const fs = require('node:fs')
 const rootDir = path.join(__dirname, '..');
 const extraDir = path.join(rootDir, 'extras');
 
-let mainWindow
+let mainWindow;
+let subprocess = null;
 
 function createWindow () {
     //const mainWindow = new BrowserWindow({
@@ -18,8 +19,8 @@ function createWindow () {
         menuBarVisible:false,
         //fullScreen:true,
         maximizable:false,
-		icon: 'icon.gif', // 设置窗口图标
-		transparent: true // 让窗口透明
+		icon: path.join(rootDir, 'image', 'icon.ico'), // 设置窗口图标
+		transparent: false// 让窗口透明
 
     });
     mainWindow.removeMenu();
@@ -43,6 +44,8 @@ function createWindow () {
 	globalShortcut.register('Alt+CommandOrControl+D', () => {
 		mainWindow.webContents.openDevTools();
 	});
+
+    setBackgroundImage();
 }
 
 // 初始化Env
@@ -61,9 +64,9 @@ function initRunEnv () {
 
 // 设置背景
 function setBackgroundImage() {
-	const file = path.join(rootDir, 'dd.png');
+	const file = path.join(rootDir, 'image', 'background.gif');
 	// 使用NativeImage来创建一个透明的背景图片
-	const background = nativeImage.createFromPath('dd.png');
+	const background = nativeImage.createFromPath(file);
 	// 设置窗口的背景图片
 	mainWindow.setBackgroundImage(background);
 }
@@ -128,9 +131,9 @@ app.on('window-all-closed', function () {
 ipcMain.on('start-subprocess', (event, args) => {
     const { spawn } = require('child_process');
 
-    const bin = path.join(extraDir, 'qproxy');
+    const bin = path.join(extraDir, 'bin', 'qproxy');
     const conf = path.join(extraDir, 'conf', 'conf.json');
-    const subprocess = spawn(bin, ['client', '--conf', `${conf}`] );
+    subprocess = spawn(bin, ['client', '--conf', `${conf}`] );
 	//const subprocess = spawn(bin, ['client', '--conf', args] )
 
     subprocess.stdout.on('data', (data) => {
@@ -140,7 +143,27 @@ ipcMain.on('start-subprocess', (event, args) => {
         mainWindow.webContents.send("logger2render", `${data}`);
     });
     subprocess.on('close', (code) => {
-        mainWindow.webContents.send("logger2render", `子进程退出:${code}`);
+        if (!mainWindow.webContents.isDestroyed()) {
+            mainWindow.webContents.send("logger2render", `子进程退出:${code}`);
+        }
     });
 });
+
+app.on('before-quit', () => {
+    stopSubprocess();
+});
+
+function stopSubprocess() {
+    if (subprocess === null) {
+        return
+    }
+
+    try {
+        subprocess.kill();
+        subprocess = null;
+    } catch (e) {
+        console.log(e);
+    }
+}
+
 

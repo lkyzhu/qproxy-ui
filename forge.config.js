@@ -14,7 +14,7 @@ module.exports = {
     //  "src"
     ],
     extraResource: [
-        "./bin"
+        "./extras"
     ]
   },
   rebuildConfig: {},
